@@ -1,0 +1,191 @@
+# # only create the worker machines 
+# # we should have a task in order to wait for the ssh connection of master01 to be ready before running the other tasks  ( use module called wait_for )
+# - name: Check if publick key exist 
+#   stat:
+#     path: "{{ ssh_pubkey_path }}"
+#   register: ssh_pubkey_stat
+# - name: Generate ssh key pair there is no pub key 
+#   shell: |
+#     ssh-keygen -t rsa -b 4096 -f /home/{{agent_user}}/.ssh/id_rsa -N ''
+#   become_user: "{{agent_user}}"  
+#   when: ssh_pubkey_stat.stat.exists == False
+# - name: Slurp pub key from local machine 
+#   slurp: 
+#     src: "{{ ssh_pubkey_path }}"
+#   register: ssh_pubkey
+
+# - name: Create GCP workers instances
+#   google.cloud.gcp_compute_instance:
+#     name: "{{ item.name }}"
+#     machine_type: "{{ item.machine_type }}"
+#     zone: "{{ item.zone }}"
+#     project: "{{google_project_id}}"
+#     auth_kind: "serviceaccount"
+#     service_account_file: "{{service_account_path}}"
+#     state: present 
+#     metadata:
+#       ssh-keys: "{{agent_user}}:{{ ssh_pubkey['content'] | b64decode }}"
+
+#     disks:
+#       - auto_delete: true
+#         boot: true
+#         initialize_params:
+#           source_image: "{{ item.image }}"
+#           disk_size_gb: "{{ item.disk_size }}"
+#           disk_type: "{{ item.disk_type }}"
+#     network_interfaces:
+#       - network:
+#           selfLink: "projects/{{google_project_id}}/global/networks/default"
+#         access_configs:
+#           - name: External NAT
+#             type: ONE_TO_ONE_NAT
+#     tags:
+#       items:
+#         - http-server
+#         - https-server
+#   loop: "{{ machines_info }}"
+#   register: gcp_workers_instances
+#   # when: false 
+#   when: item.name not in ["master02", "master03"]
+# - name: Register the existing inventory file 
+#   slurp:
+#     src: "../inventory.ini"
+#   register: existing_inventory 
+# - name: Update our inventory 
+#   template: 
+#     src: "../templates/workers-inventory.j2"
+#     dest: "../inventory.ini"
+#   vars:
+#     existing_content: "{{ existing_inventory['content'] | b64decode }}"
+
+
+
+# #### code by AI #### #
+
+  ############################################################
+# 1️⃣ Filter Only Workers
+############################################################
+- name: Set worker list
+  set_fact:
+    worker_machines: "{{ machines_info | selectattr('role','equalto','worker') | list }}"
+
+
+############################################################
+# 2️⃣ Ensure SSH Key Exists
+############################################################
+- name: Check if public key exists
+  stat:
+    path: "{{ ssh_pubkey_path }}"
+  register: ssh_pubkey_stat
+
+- name: Generate ssh key pair if not exists
+  command: ssh-keygen -t rsa -b 4096 -f /home/{{ agent_user }}/.ssh/id_rsa -N ''
+  become: yes
+  become_user: "{{ agent_user }}"
+  when: not ssh_pubkey_stat.stat.exists
+
+- name: Slurp public key
+  slurp:
+    src: "{{ ssh_pubkey_path }}"
+  register: ssh_pubkey
+
+
+############################################################
+# 3️⃣ Allocate Static IP For Workers
+############################################################
+- name: Allocate static IP for workers
+  google.cloud.gcp_compute_address:
+    name: "{{ item.name }}-ip"
+    region: "{{ item.zone[:-2] }}"
+    project: "{{ google_project_id }}"
+    auth_kind: serviceaccount
+    service_account_file: "{{ service_account_path }}"
+    state: present
+  loop: "{{ worker_machines }}"
+  register: worker_static_ips
+
+
+############################################################
+# 4️⃣ Create Worker Instances
+############################################################
+- name: Create GCP worker instances
+  google.cloud.gcp_compute_instance:
+    name: "{{ item.name }}"
+    machine_type: "{{ item.machine_type }}"
+    zone: "{{ item.zone }}"
+    project: "{{ google_project_id }}"
+    auth_kind: serviceaccount
+    service_account_file: "{{ service_account_path }}"
+    state: present
+
+    metadata:
+      ssh-keys: "{{ agent_user }}:{{ ssh_pubkey.content | b64decode }}"
+
+    disks:
+      - auto_delete: true
+        boot: true
+        initialize_params:
+          source_image: "{{ item.image }}"
+          disk_size_gb: "{{ item.disk_size | int }}"
+          disk_type: "{{ item.disk_type }}"
+
+    network_interfaces:
+      - network:
+          selfLink: "projects/{{ google_project_id }}/global/networks/default"
+        access_configs:
+          - name: External NAT
+            type: ONE_TO_ONE_NAT
+            nat_ip:
+             address: >-
+                {{
+                  (worker_static_ips.results
+                   | selectattr('item.name','equalto', item.name)
+                   | first).address
+                }}
+
+    tags:
+      items:
+        - http-server
+        - https-server
+
+  loop: "{{ worker_machines }}"
+  register: gcp_workers_instances
+  # when: false 
+  when: item.name not in ["master02", "master03"]
+- name: Register the existing inventory file 
+  slurp:
+    src: "../inventory.ini"
+  register: existing_inventory 
+- name: Update our inventory 
+  template: 
+    src: "../templates/workers-inventory.j2"
+    dest: "../inventory.ini"
+  vars:
+    existing_content: "{{ existing_inventory['content'] | b64decode }}"
+############################################################
+# 5️⃣ Wait For SSH To Be Ready
+############################################################
+# - name: Wait for SSH to be ready on workers
+#   wait_for:
+#     host: "{{ worker_static_ips.results[loop.index0].address }}"
+#     port: 22
+#     delay: 10
+#     timeout: 300
+#   loop: "{{ worker_static_ips.results }}"
+
+
+# ############################################################
+# # 6️⃣ Update Inventory File
+# ############################################################
+# - name: Read existing inventory
+#   slurp:
+#     src: "../inventory.ini"
+#   register: existing_inventory
+
+# - name: Update worker inventory
+#   template:
+#     src: "../templates/workers-inventory.j2"
+#     dest: "../inventory.ini"
+#   vars:
+#     existing_content: "{{ existing_inventory.content | b64decode }}"
+#     workers: "{{ worker_static_ips.results }}"

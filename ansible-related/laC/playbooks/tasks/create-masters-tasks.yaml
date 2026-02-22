@@ -1,0 +1,178 @@
+# # This playbook is only used to create masters machines 
+# # tasks for only create the master instance 
+# # /home/pisethkhon888/ansible-related/laC/playbooks/tasks/create-masters-tasks.yaml
+# - name: Loop to show machines specs
+#   debug: 
+#     msg: |
+#       Machine Name: {{ item.name }}
+
+#   loop: "{{ machines_info }}"
+#   when: true 
+
+# - name: Slurp pub key from local machine
+#   slurp:
+#     src: "{{ ssh_pubkey_path }}"
+#   register: ssh_pubkey
+#   when: true 
+
+# - name: Create GCP instance
+#   google.cloud.gcp_compute_instance:
+#     name: "{{ item.name }}"
+#     machine_type: "{{ item.machine_type }}"
+#     zone: "{{ item.zone }}"
+#     project: "{{google_project_id}}"
+#     auth_kind: "serviceaccount"
+#     service_account_file: "{{ service_account_path }}"
+#     state: present # absent -> delete instance 
+#     metadata:
+#       ssh-keys: "{{agent_user}}:{{ ssh_pubkey['content'] | b64decode }}"
+
+#     disks:
+#       - auto_delete: true
+#         boot: true
+#         initialize_params:
+#           source_image: "{{ item.image }}"
+#           disk_size_gb: "{{ item.disk_size }}"
+#           disk_type: "{{ item.disk_type }}"
+#     network_interfaces:
+#       - network:
+#           selfLink: "projects/{{google_project_id}}/global/networks/default"
+#         access_configs:
+#           - name: External NAT
+#             type: ONE_TO_ONE_NAT
+#     tags:
+#       items:
+#         - http-server
+#         - https-server
+#   loop: "{{ machines_info }}"
+#   register: gcp_instances
+#   # when: false 
+#   when: item.name in ["master02","master03"] 
+#     # - item.name == "master02"
+#     # - item.name == "master03" 
+# # Error in getting the first values  results 
+# - name: Write gcp_instances into json file
+#   copy:
+#     content: "{{ gcp_instances }}"
+#     dest: "./gcp_more_instances.json"
+#   when: true
+# - name: Create inventory from template 
+#   template: 
+#     src: ../templates/masters-inventory.j2 
+#     dest: ../inventory.ini
+#   when: true  
+
+
+  ########################
+
+# ==========================================
+# Create Masters With Static External IP
+# ==========================================
+# ------------------------------------------
+# ------------------------------------------
+# Filter ALL masters automatically
+# ------------------------------------------
+
+# ### options one ### #
+# - name: Define masters list dynamically
+#   set_fact:
+#     masters_only: "{{ machines_info | selectattr('name','match','^master') | list }}"
+
+# ### options two ### #
+- name: Define masters list dynamically
+  set_fact:
+    masters_only: "{{ machines_info | selectattr('role','equalto','master') | list }}"
+# ------------------------------------------
+# Show masters
+# ------------------------------------------
+- name: Show master specs
+  debug:
+    msg: |
+      Machine Name: {{ item.name }}
+      Machine Type: {{ item.machine_type }}
+      Zone: {{ item.zone }}
+  loop: "{{ masters_only }}"
+
+# ------------------------------------------
+# Read SSH public key
+# ------------------------------------------
+- name: Slurp SSH public key
+  slurp:
+    src: "{{ ssh_pubkey_path }}"
+  register: ssh_pubkey
+
+# ------------------------------------------
+# Reserve Static IP for ALL masters
+# ------------------------------------------
+- name: Reserve static external IP for masters
+  google.cloud.gcp_compute_address:
+    name: "{{ item.name }}-static-ip"
+    region: "{{ item.zone | regex_replace('-[a-z]$', '') }}"
+    project: "{{ google_project_id }}"
+    auth_kind: serviceaccount
+    service_account_file: "{{ service_account_path }}"
+    state: present
+  loop: "{{ masters_only }}"
+  register: static_ips
+
+# ------------------------------------------
+# Create Masters with Static IP
+# ------------------------------------------
+- name: Create GCP master instances
+  google.cloud.gcp_compute_instance:
+    name: "{{ item.name }}"
+    machine_type: "{{ item.machine_type }}"
+    zone: "{{ item.zone }}"
+    project: "{{ google_project_id }}"
+    auth_kind: serviceaccount
+    service_account_file: "{{ service_account_path }}"
+    state: present
+
+    metadata:
+      ssh-keys: "{{ agent_user }}:{{ ssh_pubkey.content | b64decode }}"
+
+    disks:
+      - auto_delete: true
+        boot: true
+        initialize_params:
+          source_image: "{{ item.image }}"
+          disk_size_gb: "{{ item.disk_size }}"
+          disk_type: "{{ item.disk_type }}"
+
+    network_interfaces:
+      - network:
+          selfLink: "projects/{{ google_project_id }}/global/networks/default"
+        access_configs:
+          - name: External NAT
+            type: ONE_TO_ONE_NAT
+            nat_ip:
+              address: >-
+                {{
+                  (static_ips.results
+                   | selectattr('item.name','equalto', item.name)
+                   | first).address
+                }}
+
+    tags:
+      items:
+        - http-server
+        - https-server
+
+  loop: "{{ masters_only }}"
+  register: gcp_instances
+
+# ------------------------------------------
+# Save result
+# ------------------------------------------
+- name: Save GCP instance result to JSON
+  copy:
+    content: "{{ gcp_instances | to_nice_json }}"
+    dest: "./gcp_masters_instances.json"
+
+# ------------------------------------------
+# Generate inventory
+# ------------------------------------------
+- name: Create inventory from template
+  template:
+    src: ../templates/masters-inventory.j2
+    dest: ../inventory.ini

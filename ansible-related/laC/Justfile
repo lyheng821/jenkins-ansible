@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# create-instance:
+#     echo " Createing First google instance with SSH pub key"
+#     ansible-playbook playbooks/create-gcp-instance.yaml
+
+
+#!/bin/bash
+
+create-instance: 
+    echo "Creating First Google instance with SSH pub key"
+    ansible-playbook playbooks/create-gcp-instance.yaml
+iac: 
+    echo "Create all the masters ....  " 
+    ansible-playbook playbooks/create-masters-instance.yaml
+    echo "Create all the workers ..... " 
+    ansible-playbook playbooks/create-workers-instance.yaml
+# just create-masters
+create-masters: 
+    echo " 🫱 Create all the masters ....  " 
+    ansible-playbook playbooks/create-masters-instance.yaml
+# just create-workers
+create-workers: 
+    echo " ➡️ Create all the workers ..... " 
+    ansible-playbook playbooks/create-workers-instance.yaml
+destroy: 
+    ansible-playbook playbooks/destroy.yaml

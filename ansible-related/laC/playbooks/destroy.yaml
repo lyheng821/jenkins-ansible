@@ -1,0 +1,136 @@
+# ---
+# - name: Setup Workers 
+#   hosts: localhost
+#   # become: true 
+#   gather_facts: false
+#   vars_files: 
+#     - ../vars/machines.yaml
+#   tasks: 
+#     - name: Destroy GCP instances
+#       google.cloud.gcp_compute_instance:
+#         name: "{{ item.name }}"
+#         machine_type: "{{ item.machine_type }}"
+#         zone: "{{ item.zone }}"
+#         project: "{{google_project_id}}"
+#         auth_kind: "serviceaccount"
+#         service_account_file: "{{ service_account_path }}"
+#         state: absent
+#         disks:
+#           - auto_delete: true
+#             boot: true
+#             initialize_params:
+#               source_image: "{{ item.image }}"
+#               disk_size_gb: "{{ item.disk_size }}"
+#               disk_type: "{{ item.disk_type }}"
+#         network_interfaces:
+#           - network:
+#               selfLink: "projects/{{google_project_id}}/global/networks/default"
+#             access_configs:
+#               - name: External NAT
+#                 type: ONE_TO_ONE_NAT
+#         tags:
+#           items:
+#             - http-server
+#             - https-server
+#       loop: "{{ machines_info }}"
+#       register: gcp_instances
+
+
+      ######## code by AI
+
+---
+- name: Destroy Masters and Remove Static IP
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - ../vars/machines.yaml
+
+  tasks:
+
+    # ---------------------------------------
+    # Filter only masters (if needed)
+    # ---------------------------------------
+    - name: Define masters list
+      set_fact:
+        masters_only: "{{ machines_info | selectattr('role','equalto','master') | list }}"
+
+    - name: Define worker list
+      set_fact:
+        worker_only: "{{ machines_info | selectattr('role','equalto','worker') | list }}"
+    # ---------------------------------------
+    # Delete GCP Instances
+    # ---------------------------------------
+    # - name: Delete GCP instances
+    #   google.cloud.gcp_compute_instance:
+    #     name: "{{ item.name }}"
+    #     zone: "{{ item.zone }}"
+    #     project: "{{ google_project_id }}"
+    #     auth_kind: serviceaccount
+    #     service_account_file: "{{ service_account_path }}"
+    #     state: absent
+    #   loop: "{{ masters_only }}"
+    #   register: deleted_instances
+
+    - name: Destroy GCP instances
+      google.cloud.gcp_compute_instance:
+        name: "{{ item.name }}"
+        machine_type: "{{ item.machine_type }}"
+        zone: "{{ item.zone }}"
+        project: "{{google_project_id}}"
+        auth_kind: "serviceaccount"
+        service_account_file: "{{ service_account_path }}"
+        state: absent
+        disks:
+          - auto_delete: true
+            boot: true
+            initialize_params:
+              source_image: "{{ item.image }}"
+              disk_size_gb: "{{ item.disk_size }}"
+              disk_type: "{{ item.disk_type }}"
+        network_interfaces:
+          - network:
+              selfLink: "projects/{{google_project_id}}/global/networks/default"
+            access_configs:
+              - name: External NAT
+                type: ONE_TO_ONE_NAT
+        tags:
+          items:
+            - http-server
+            - https-server
+      loop: "{{ machines_info }}"
+      register: gcp_instances
+
+    # ---------------------------------------
+    # Delete Static External IPs for only masters
+    # ---------------------------------------
+    - name: Delete static external IPs
+      google.cloud.gcp_compute_address:
+        name: "{{ item.name }}-static-ip"
+        region: "{{ item.zone | regex_replace('-[a-z]$', '') }}"
+        project: "{{ google_project_id }}"
+        auth_kind: serviceaccount
+        service_account_file: "{{ service_account_path }}"
+        state: absent
+      loop: "{{ masters_only }}"
+   # ---------------------------------------
+    # Delete Static External IPs for only workers
+    # ---------------------------------------
+    - name: Delete static external IPs
+      google.cloud.gcp_compute_address:
+        name: "{{ item.name }}-ip"
+        region: "{{ item.zone | regex_replace('-[a-z]$', '') }}"
+        project: "{{ google_project_id }}"
+        auth_kind: serviceaccount
+        service_account_file: "{{ service_account_path }}"
+        state: absent
+      loop: "{{ worker_only }}"
+
+# - name: Delete ALL static IP
+#   google.cloud.gcp_compute_address:
+#     name: "{{ item.name }}-static-ip"
+#     region: "{{ item.zone | regex_replace('-[a-z]$', '') }}"
+#     project: "{{ google_project_id }}"
+#     auth_kind: serviceaccount
+#     service_account_file: "{{ service_account_path }}"
+#     state: absent
+#   loop: "{{ machines_info }}"

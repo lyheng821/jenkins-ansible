@@ -1,0 +1,8 @@
+# This playbook is only used to create masters machines 
+- name: Create master machines 
+  hosts: localhost 
+  vars_files: 
+    - ../vars/machines.yaml
+  tasks: 
+    - name: Create all masters 
+      import_tasks: tasks/create-masters-tasks.yaml
