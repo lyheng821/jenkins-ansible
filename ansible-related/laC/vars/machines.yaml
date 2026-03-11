@@ -35,6 +35,13 @@ ubuntu_specs:
 # Define machines that we will create
 machines_info:
   # master requirement : RAM 8G, ....
+  - name: "master01"
+    role: master
+    machine_type: "{{ machine_specs.large.machine_type }}"
+    image: "{{ ubuntu_specs.v22.image }}"
+    zone: "{{ machine_specs.large.zone }}"
+    disk_size: "{{ machine_specs.large.disk_size }}"
+    disk_type: "{{ machine_specs.large.disk_type }}"
   - name: "master02"
     role: master
     machine_type: "{{ machine_specs.large.machine_type }}"

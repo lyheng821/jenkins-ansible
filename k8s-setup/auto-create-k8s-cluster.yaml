@@ -1,0 +1,191 @@
+
+---
+- name: Auto Create Ku
+  hosts: localhost
+  gather_facts: false
+  # vars_files:
+  #   - ../vars/machines.yaml
+
+  tasks:
+
+    #################
+    # 0️⃣ Remove old Kubespray if exists
+#     - name: Remove old Kubespray directory
+#       file:
+#         path: /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray
+#         state: absent
+# # pip install -r requirements.txt
+#     # 1️⃣ Clone Kubespray
+#     - name: Clone Kubespray
+#       git:
+#         repo: https://github.com/kubernetes-sigs/kubespray.git
+#         dest: /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray
+#         version: master
+#       ignore_errors: yes
+      
+      # 4️⃣ Create virtual environment
+    # - name: Create Kubespray virtualenv
+    #   command: python3 -m venv /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/venv
+    #   args:
+    #     creates: /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/venv
+
+    # # 5️⃣ Upgrade pip inside venv
+    # - name: Upgrade pip inside virtualenv
+    #   pip:
+    #     name: pip
+    #     state: latest
+    #     virtualenv: /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/venv
+
+    # # 6️⃣ Install Kubespray requirements
+    # - name: Install Kubespray requirements
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     virtualenv: /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/venv
+
+    # 4️⃣ Install required Python packages
+    # - name: Install Python requirements for Kubespray
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     executable: /usr/bin/pip3 
+
+    # - name: Install Kubespray requirements
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     executable: pip3
+    # - name: Install Kubespray requirements
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     virtualenv: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/venv"
+    #     virtualenv_command: "python3 -m venv"
+      
+    - name: Remove Git and CI directories from Kubespray
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/.git
+        - /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/.github
+        - /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/.gitlab-ci
+
+    #################
+    # - name: Load GCP instances from JSON
+    #   set_fact:
+    #     gcp_data: "{{ lookup('file', '/home/pisethkhon888/k8s/gcp_instance.json') | from_json }}"
+
+    # # option1
+    # - name: Copy inventory.ini.j2 to inventory.ini
+    #   copy:
+    #     src: /home/pisethkhon888/k8s/inventory/mycluster/inventory.ini.j2
+    #     dest: /home/pisethkhon888/k8s/inventory/mycluster/inventory.ini
+    #     mode: '0644'
+
+    #################
+    # option 2
+    # - name: Overwrite Kubespray inventory.ini with custom configuration
+    #   template:
+    #     src: "inventory.ini.j2"
+    #     dest: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/inventory/sample/inventory.ini"
+    #     mode: '0644'
+    #   vars:
+    #     workers: "{{ gcp_data.workers }}"
+
+
+    - name: Enable Kubernetes dashboard
+      replace:
+        path: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/inventory/sample/group_vars/k8s_cluster/addons.yml"
+        regexp: "^#\\s*dashboard_enabled:.*"
+        replace: "dashboard_enabled: true"
+
+    - name: Enable Kubernetes addons
+      replace:
+        path: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/inventory/sample/group_vars/k8s_cluster/addons.yml"
+        regexp: "^{{ item }}:\\s*false"
+        replace: "{{ item }}: true"
+      loop:
+        - helm_enabled
+        - argocd_enabled
+        - metrics_server_enabled
+        - cert_manager_enabled
+        - ingress_nginx_enabled
+
+    # 
+    - name:  Kubernetes change  cluster_name 
+      replace:
+        path: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/inventory/sample/group_vars/k8s_cluster/k8s-cluster.yml"
+        regexp: "^{{ item }}:\\s*cluster.local"
+        replace: "{{ item }}: pro.cluster"
+      loop:
+        - cluster_name
+    # #################
+
+
+    # # 1️⃣ Load GCP instance data
+    # - name: Load worker nodes from JSON
+    #   include_vars:
+    #     file: /home/pisethkhon888/k8s-setup/gcp_instance.json
+    #     name: gcp_data
+
+    # # 2️⃣ Set master and workers facts
+    # - name: Set master and worker facts
+    #   set_fact:
+    #     master:
+    #       name: master1
+    #       internal_ip: 10.148.0.2
+    #       external_ip: 34.126.162.82
+    #     workers: "{{ gcp_data.workers }}"
+
+    # # 3️⃣ Debug to confirm
+    # - name: Debug master
+    #   debug:
+    #     var: master
+
+    # - name: Debug workers
+    #   debug:
+    #     var: workers
+
+    # - name: Set worker IPs list
+    #   set_fact:
+    #     worker_ips: "{{ gcp_data.workers | map(attribute='internal_ip') | list }}"
+
+    # # - name: Debug worker IPs
+    # #   debug:
+    # #     var: worker_ips
+    # # 1️⃣ Wait for master SSH
+    # - name: Wait for master SSH
+    #   wait_for:
+    #     host: "10.148.0.14"
+    #     port: 22
+    #     state: started
+    #     timeout: 300
+
+
+    # - name: Wait for worker SSH
+    #   wait_for:
+    #     host: "{{ item }}"
+    #     port: 22
+    #     state: started
+    #     timeout: 300
+    #   loop: "{{ worker_ips }}"
+
+    #   # # 5️⃣ Copy SSH key to worker nodes
+    # - name: Copy SSH key to worker nodes
+    #   authorized_key:
+    #     user: pisethkhon888
+    #     state: present
+    #     key: "{{ lookup('file', ssh_public_key_file) }}"
+    #   loop: "{{ worker_ips }}"
+    #   delegate_to: "{{ item }}"
+    #   vars:
+    #     ansible_ssh_private_key_file: "{{ ssh_private_key_file }}"
+
+
+    # # 2️⃣ Run Kubespray to setup HA cluster
+    # - name: Run Kubespray to setup HA cluster
+    #   command: >
+    #     ansible-playbook -b -v
+    #     -i /home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/inventory/sample/inventory.ini
+    #     cluster.yml
+    #   args:
+    #     chdir: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray"
+    # # ############
+

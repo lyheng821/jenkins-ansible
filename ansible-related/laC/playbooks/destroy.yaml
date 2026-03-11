@@ -57,8 +57,9 @@
     - name: Define worker list
       set_fact:
         worker_only: "{{ machines_info | selectattr('role','equalto','worker') | list }}"
+        
     # ---------------------------------------
-    # Delete GCP Instances
+    # Delete GCP Instances only masters
     # ---------------------------------------
     # - name: Delete GCP instances
     #   google.cloud.gcp_compute_instance:
@@ -71,6 +72,10 @@
     #   loop: "{{ masters_only }}"
     #   register: deleted_instances
 
+
+# ==========================================
+# Destroy all GCP instances masters and workers
+# ==========================================
     - name: Destroy GCP instances
       google.cloud.gcp_compute_instance:
         name: "{{ item.name }}"
@@ -125,12 +130,3 @@
         state: absent
       loop: "{{ worker_only }}"
 
-# - name: Delete ALL static IP
-#   google.cloud.gcp_compute_address:
-#     name: "{{ item.name }}-static-ip"
-#     region: "{{ item.zone | regex_replace('-[a-z]$', '') }}"
-#     project: "{{ google_project_id }}"
-#     auth_kind: serviceaccount
-#     service_account_file: "{{ service_account_path }}"
-#     state: absent
-#   loop: "{{ machines_info }}"
