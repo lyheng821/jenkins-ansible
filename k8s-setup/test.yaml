@@ -1,0 +1,66 @@
+- name: Setup Kubespray environment
+  hosts: localhost
+  become: yes
+  vars:
+      kubespray_dir: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray"
+      desired_ansible_version: "10.7.0"
+
+  tasks:
+
+    # 0️⃣ Remove old Kubespray if exists
+    - name: Remove old Kubespray directory
+      file:
+        path: "{{ kubespray_dir }}"
+        state: absent
+
+    # 1️⃣ Clone Kubespray
+    - name: Clone Kubespray
+      git:
+        repo: https://github.com/kubernetes-sigs/kubespray.git
+        dest: "{{ kubespray_dir }}"
+        version: master
+      ignore_errors: yes
+    # - name: Install Kubespray requirements
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     executable: pip3
+
+    # 4️⃣ Install required Python packages
+    # - name: Install Python requirements for Kubespray
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     executable: /usr/bin/pip3 
+
+    - name: Install Python requirements for Kubespray
+      pip:
+        requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+        executable: /usr/bin/pip3
+      ignore_errors: yes  # <-- this will skip errors for Ansible package
+
+    # - name: Replace Ansible version in requirements.txt
+    #   lineinfile:
+    #     path: "{{ kubespray_dir }}/requirements.txt"
+    #     regexp: '^ansible==.*'       # match the existing ansible line
+    #     line: "ansible=={{ desired_ansible_version }}"  # replace with new version
+
+    # 2️⃣ Install system packages required for venv
+    # - name: Install system packages required for venv
+    #   apt:
+    #     name:
+    #       - "{{ python_version }}-venv"
+    #       - python3-pip
+    #     state: present
+    #     update_cache: yes
+
+    # # 3️⃣ Update requirements.txt to use lower Ansible
+    # - name: Set Ansible version compatible with Python 3.10
+    #   lineinfile:
+    #     path: "{{ kubespray_dir }}/requirements.txt"
+    #     regexp: '^ansible==.*'
+    #     line: "ansible=={{ ansible_version }}"
+    #     backrefs: yes
+    # #  4️⃣ Install required Python packages
+    # - name: Install Python requirements for Kubespray
+    #   pip:
+    #     requirements: "/home/pisethkhon888/jenkins-ansible-lesson/k8s-setup/kubespray/requirements.txt"
+    #     executable: /usr/bin/pip3 

@@ -1,0 +1,50 @@
+
+
+- name: Install Common Service Playbook
+  hosts: worker1,worker2
+  become: yes # create user, sudo apt install ....
+  tasks: 
+    - name: Update APT cache 
+      apt: 
+        update_cache: yes 
+    - name: Install Nginx 
+      apt: 
+        name: nginx 
+        state: present  # present = install , absent = uninstall
+   
+    - name: install fish shell 
+      apt: 
+        name: fish 
+        state: present 
+    - name: Install neofetch 
+      apt: 
+        name: neofetch 
+        state: present 
+
+    - name: Install docker 
+      apt: 
+        # name: docker 
+        name:  docker.io
+        state: present 
+    - name: Install docker compose 
+      apt: 
+        name: docker-compose 
+        state: present 
+    # - name: Add current user to docker group 
+    #   user: 
+    #      name: pisethkhon888
+    #      groups: docker 
+    #      append: true
+
+    #need logout then login back
+    - name: Ensure docker group exists
+      group:
+        name: docker
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: pisethkhon888
+        groups: docker
+        append: true
+# ansible-playbook -i inventory.ini playbooks/first.yaml

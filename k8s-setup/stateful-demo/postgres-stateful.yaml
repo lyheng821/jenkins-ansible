@@ -1,0 +1,125 @@
+# apiVersion: apps/v1
+# kind: StatefulSet
+# metadata:
+#   name: postgres-stateful-app
+# spec:
+#   selector:
+#     matchLabels:
+#       app: postgres-stateful-app
+#   serviceName: postgres-stateful-svc
+#   replicas: 4
+#   template:
+#     metadata:
+#       labels:
+#         app: postgres-stateful-app
+#     spec:
+#     # used it to won't run node1
+#       affinity:
+#         nodeAffinity:
+#             requiredDuringSchedulingIgnoredDuringExecution:
+#               nodeSelectorTerms:
+#               - matchExpressions:
+#                 - key: kubernetes.io/hostname
+#                   operator: NotIn
+#                   values:
+#                   - node1
+#       containers:
+#       - name: postgres-cont
+#         image: postgres
+#         # for production , please use configmap 
+#         env:
+#         - name: POSTGRES_DB
+#           value: demodb
+#         - name: POSTGRES_USER
+#           value: demouser
+#         # for production , please use secret instead 
+#         - name: POSTGRES_PASSWORD
+#           value: password123
+#         ports:
+#         - containerPort: 5432
+#         volumeMounts:
+#         - name: my-postgres-vol
+#           mountPath: /var/lib/postgresql/data
+#   volumeClaimTemplates:
+#   - metadata:
+#       name: my-postgres-vol
+#     spec:
+#       storageClassName: nfs-client
+#       accessModes: [ "ReadWriteOnce" ]
+#       resources:
+#         requests:
+#           storage: 10Gi
+
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-stateful-app   # Name of StatefulSet
+
+spec:
+  serviceName: postgres-stateful-svc   # REQUIRED for StatefulSet (headless service)
+  replicas: 4                          # Number of PostgreSQL pods
+
+  selector:
+    matchLabels:
+      app: postgres-stateful-app       # Must match template labels
+
+  template:
+    metadata:
+      labels:
+        app: postgres-stateful-app     # Label for pod selection
+
+    spec:
+      # ✅ FIX 1: IMPORTANT (NFS permission fix)
+      securityContext:
+        fsGroup: 999   # PostgreSQL runs as UID 999 → gives write permission to volume
+
+      # Node scheduling rule (your original config)
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: NotIn
+                values:
+                - node1   # Avoid scheduling on node1
+
+      containers:
+      - name: postgres-cont
+        image: postgres:15   # ✅ FIX 2: use stable version (not latest)
+
+        env:
+        - name: POSTGRES_DB
+          value: demodb       # Initial database name
+
+        - name: POSTGRES_USER
+          value: demouser     # DB user
+
+        - name: POSTGRES_PASSWORD
+          value: password123  # DB password (use Secret in production)
+
+        ports:
+        - containerPort: 5432   # PostgreSQL port
+
+        volumeMounts:
+        - name: my-postgres-vol
+          mountPath: /var/lib/postgresql/data   # REQUIRED path for Postgres data
+
+  # Persistent Volume for each pod
+  volumeClaimTemplates:
+  - metadata:
+      name: my-postgres-vol
+      labels:
+        app: postgres-stateful-app   # ✅ FIX 3: add label (good practice)
+
+    spec:
+      storageClassName: nfs-client   # Using NFS storage
+
+      # ✅ FIX 4: NFS should use ReadWriteMany
+      accessModes:
+      - ReadWriteMany
+
+      resources:
+        requests:
+          storage: 10Gi   # Storage per pod

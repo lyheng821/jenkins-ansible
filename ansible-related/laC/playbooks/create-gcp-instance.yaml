@@ -1,0 +1,24 @@
+--- 
+- name: Create Google Cloud Instance
+  hosts: localhost
+  become: yes
+  vars:
+    machine_name: master1
+    google_project_id: project-43870694-ed75-4adc-b95
+    
+    service_account_path: ../google-service-account.json
+    ssh_public_key_path: /home/pisethkhon888/.ssh/id_rsa.pub
+  tasks:
+    - name: Create first gcp instance
+      import_tasks: tasks/create-gcp-task.yaml
+
+    # - name: Slurp pub key from local machine
+    #   slurp:
+    #     src: "{{ ssh_pubkey_path }}"
+    #   register: ssh_pubkey
+    # - name: This is the name of ansible user
+    #   debug:
+    #     msg: "Current user is : {{ ansible_user }}"
+
+
+# ansible-playbook playbooks/create-gcp-instance.yaml

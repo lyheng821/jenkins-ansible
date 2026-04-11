@@ -1,0 +1,31 @@
+appName:
+  app: nginx-stagging
+replicas: 1
+nodeSelector:
+  kubernetes.io/hostname: node4
+  testing: 1
+volumeMounts: 
+  - name: my-vol
+    mountPath: /app/src/main/resources/images 
+  - name: my-vol-2
+    mountPath: /etc/mystorage
+volumes: 
+  - name: my-vol
+    hostPath: 
+      path: /var/images
+  - name: my-vol-2
+    persistentVolumeClaim: 
+      claimName: dynamic-spring-pvc   
+  
+container:
+  name: nginx--staging-cont
+  image: nginx:latest
+  pullPolicy: Always
+  port: 80
+  envs: 
+  - name: POSTGRES_USERNAME
+    value: postgresql
+  - name: POSTGRES_PASSWORD
+    value: password123
+  - name: POSTGRES_DB
+    value: db_demo

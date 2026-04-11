@@ -1,0 +1,7 @@
+{{- if gt (int  $.Values.replicas) 3 }}
+
+{{- include "my-deployment.tpl" . }}
+
+{{- else }}
+  {{- fail "Replicas must be greater than 3"}}
+{{- end }}
