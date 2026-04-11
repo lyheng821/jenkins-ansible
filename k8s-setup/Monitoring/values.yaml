@@ -354,10 +354,10 @@ alertmanager:
     - name: 'telegram-notification'
       telegram_configs: 
         - send_resolved: true 
-          # bot_token: '8130704837:AAHoFhRf5LfntNVFDk-DhSMOPiBl9Ll7KPI'
-          # chat_id: 1475513285
-          bot_token: '<BOT_TOKEN>'
-          chat_id: '<CHAT_ID as number!!>'
+          bot_token: '8130704837:AAHoFhRf5LfntNVFDk-DhSMOPiBl9Ll7KPI'
+          chat_id: 1475513285
+          # bot_token: '<BOT_TOKEN>'
+          # chat_id: '<CHAT_ID as number!!>'
           parse_mode: "HTML"
           message: |-
                   {{ range .Alerts }}

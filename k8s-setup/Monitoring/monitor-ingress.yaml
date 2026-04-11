@@ -10,11 +10,11 @@ spec:
   ingressClassName: "nginx"
   tls: 
     - hosts: 
-      - prometheus.sethnexusonline.online
-      - grafana.sethnexusonline.online
+      - prometheus1.sethnexusonline.online
+      - grafana1.sethnexusonline.online
       secretName: kube-stack-new-tls
   rules: 
-    - host: prometheus.sethnexusonline.online
+    - host: prometheus1.sethnexusonline.online
       http:
         paths: 
           - pathType: Prefix 
@@ -24,7 +24,7 @@ spec:
                 name: monitor-stack-release-kube-prometheus
                 port: 
                   number: 9090
-    - host: grafana.sethnexusonline.online
+    - host: grafana1.sethnexusonline.online
       http:
         paths: 
           - pathType: Prefix 
